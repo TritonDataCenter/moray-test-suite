@@ -37,10 +37,8 @@ var WORLD_EXECUTABLE = 0x1;
 
 /*
  * This is the "npm install" argument we use to get the "stock" Moray client.
- * TODO This should likely eventually become "moray" (i.e., the latest published
- * one), but we haven't published v2 yet, so we're using this.
  */
-var DFL_MORAY_CLIENT_TARGET = 'git://github.com/joyent/node-moray.git';
+var DFL_MORAY_CLIENT_TARGET = 'moray';
 var DFL_MORAY_SERVER_TARGET = 'git://github.com/joyent/moray.git';
 
 var usageMessage = [
