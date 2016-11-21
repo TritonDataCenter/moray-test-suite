@@ -5,12 +5,13 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright 2016, Joyent, Inc.
  */
 
 var tape = require('tape');
 var util = require('util');
 var uuid = require('libuuid').create;
+var VError = require('verror');
 
 var helper = require('./helper.js');
 
@@ -85,7 +86,9 @@ test('sql - fail', function (t) {
     sql = 'BOGUS QUERY;';
     q = c.sql(sql, [], {});
     q.once('error', function (err) {
-        t.ok(err);
+        t.ok(err, 'error returned');
+        t.ok(VError.hasCauseWithName(err, 'InternalError'),
+            'InternalError returned');
         t.end();
     });
 });
