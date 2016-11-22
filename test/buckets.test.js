@@ -11,6 +11,7 @@
 var jsprim = require('jsprim');
 var tape = require('tape');
 var uuid = require('libuuid').create;
+var vasync = require('vasync');
 var VError = require('verror');
 
 var helper = require('./helper.js');
@@ -404,6 +405,81 @@ test('delete missing bucket', function (t) {
         t.ok(err);
         t.ok(VError.findCauseByName(err, 'BucketNotFoundError') !== null);
         t.ok(err.message);
+        t.end();
+    });
+});
+
+
+test('MORAY-378 - Bucket cache cleared on bucket delete', function (t) {
+    vasync.pipeline({ funcs: [
+        // Create the initial bucket.
+        function (_, cb) { c.createBucket(b, {}, cb); },
+
+        // updateBucket() will set "reindex_active" on the bucket.
+        function (_, cb) {
+            c.updateBucket(b, {
+                index: { field: { type: 'number' } },
+                options: { version: 2 }
+            }, cb);
+        },
+
+        // Prime the bucket cache with putObject().
+        function (_, cb) { c.putObject(b, 'key', { field: 5 }, cb); },
+
+        // Delete the bucket.
+        function (_, cb) { c.delBucket(b, cb); },
+
+        // Create a bucket with the same name; it won't have "reindex_active".
+        function (_, cb) { c.createBucket(b, {}, cb); },
+
+        // If the old cached bucket is used, it'll have "reindex_active", and
+        // Moray will try to place a value in the non-existent "_rver" column.
+        function (_, cb) { c.putObject(b, 'key', { field: 5 }, cb); }
+    ]}, function (err) {
+        t.error(err, 'Finish without error');
+        t.end();
+    });
+});
+
+
+test('MORAY-378 - Bucket cache cleared on bucket update', function (t) {
+    var schema = {
+        index: { field: { type: 'string' } },
+        options: { version: 2 }
+    };
+
+    vasync.pipeline({ funcs: [
+        // Create the initial bucket.
+        function (_, cb) { c.createBucket(b, {}, cb); },
+
+        // Prime the bucket cache with putObject().
+        function (_, cb) { c.putObject(b, 'key1', {}, cb); },
+
+        // Add a new index.
+        function (_, cb) { c.updateBucket(b, schema, cb); },
+
+        // Insert a new object into the bucket.
+        function (_, cb) { c.putObject(b, 'key2', { field: 'foo' }, cb); },
+
+        // If the old cached value was used, a value won't have been inserted
+        // into the "field" column. We can check this using .sql() results.
+        function (_, cb) {
+            var count = 0;
+            var args = [ 'key2' ];
+            var res = c.sql('SELECT * FROM ' + b + ' WHERE _key = $1;', args);
+            res.on('record', function (r) {
+                t.equal(r._key, 'key2', 'correct object returned for key');
+                t.equal(r.field, 'foo', '"field" column had value inserted');
+                count += 1;
+            });
+            res.on('error', cb);
+            res.on('end', function () {
+                t.equal(count, 1, 'one row returned');
+                cb();
+            });
+        }
+    ]}, function (err) {
+        t.error(err, 'Finish without error');
         t.end();
     });
 });
