@@ -11,6 +11,7 @@
 var jsprim = require('jsprim');
 var tape = require('tape');
 var uuid = require('libuuid').create;
+var vasync = require('vasync');
 var VError = require('verror');
 
 var helper = require('./helper.js');
@@ -404,6 +405,59 @@ test('delete missing bucket', function (t) {
         t.ok(err);
         t.ok(VError.findCauseByName(err, 'BucketNotFoundError') !== null);
         t.ok(err.message);
+        t.end();
+    });
+});
+
+
+test('MORAY-378 - Bucket cache cleared on bucket delete', function (t) {
+    vasync.pipeline({ funcs: [
+        function (_, cb) { c.createBucket(b, {}, cb); },
+        function (_, cb) {
+            c.updateBucket(b, {
+                index: { field: { type: 'number' } },
+                options: { version: 2 }
+            }, cb);
+        },
+        function (_, cb) { c.putObject(b, 'key', { field: 5 }, cb); },
+        function (_, cb) { c.delBucket(b, cb); },
+        function (_, cb) { c.createBucket(b, {}, cb); },
+        function (_, cb) { c.putObject(b, 'key', { field: 5 }, cb); }
+    ]}, function (err) {
+        t.error(err, 'Finish without error');
+        t.end();
+    });
+});
+
+
+test('MORAY-378 - Bucket cache cleared on bucket update', function (t) {
+    var schema = {
+        index: { field: { type: 'string' } },
+        options: { version: 2 }
+    };
+
+    vasync.pipeline({ funcs: [
+        function (_, cb) { c.createBucket(b, {}, cb); },
+        function (_, cb) { c.putObject(b, 'key1', {}, cb); },
+        function (_, cb) { c.updateBucket(b, schema, cb); },
+        function (_, cb) { c.putObject(b, 'key2', { field: 'foo' }, cb); },
+        function (_, cb) {
+            var count = 0;
+            var res =
+                c.sql('SELECT * FROM ' + b + ' WHERE _key = $1;', ['key2']);
+            res.on('record', function (r) {
+                t.equal(r._key, 'key2', 'correct object returned for key');
+                t.equal(r.field, 'foo', '"field" column had value inserted');
+                count += 1;
+            });
+            res.on('error', cb);
+            res.on('end', function () {
+                t.equal(count, 1, 'one row returned');
+                cb();
+            });
+        },
+    ]}, function (err) {
+        t.error(err, 'Finish without error');
         t.end();
     });
 });
