@@ -335,7 +335,6 @@ function parseFindobjectsResults(t, stdout)
 function generateFailureTests()
 {
     var cmds = [
-        'backfill',
         'delbucket',
         'delmany',
         'delobject',
@@ -365,6 +364,16 @@ function generateFailureTests()
         });
 
         testcases.push({
+            'name': cmdname + ': usage error',
+            'exec': [ cmdname ].concat(
+                [ '-h', 'bogus-test', '-S', 'other-test' ].concat(args)),
+            'statusCode': 2,
+            'stdout': /^$/,
+            'stderr': new RegExp(
+                '-S/--service cannot be combined with -h/--host or -p/--port')
+        });
+
+        testcases.push({
             'name': cmdname + ': bad port',
             'exec': [ cmdname ].concat(
                 [ '-h', '127.0.0.1', '-p', '1111' ].concat(args)),
@@ -391,11 +400,15 @@ function validArgsFor(cmdname)
         return ([ 'select NOW()' ]);
     }
 
-    if (cmdname == 'backfill' || cmdname == 'delbucket' ||
-        cmdname == 'delmany' || cmdname == 'delobject' ||
-        cmdname == 'findobjects' || cmdname == 'getbucket' ||
-        cmdname == 'getobject' || cmdname == 'putbucket' ||
-        cmdname == 'putobject' || cmdname == 'reindexobjects' ||
+    if (cmdname == 'delbucket' ||
+        cmdname == 'delmany' ||
+        cmdname == 'delobject' ||
+        cmdname == 'findobjects' ||
+        cmdname == 'getbucket' ||
+        cmdname == 'getobject' ||
+        cmdname == 'putbucket' ||
+        cmdname == 'putobject' ||
+        cmdname == 'reindexobjects' ||
         cmdname == 'updatemany') {
         /* add a bucket name */
         args.push(bucket);

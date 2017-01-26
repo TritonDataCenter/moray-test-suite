@@ -8,7 +8,7 @@
  * Copyright (c) 2016, Joyent, Inc.
  */
 
-var assert = require('assert');
+var assert = require('assert-plus');
 var child = require('child_process');
 var forkexec = require('forkexec');
 var fs = require('fs');
@@ -166,6 +166,77 @@ function cleanupServer(server, cb) {
     }
 }
 
+/*
+ * This function behaves like t.deepEqual(), except that it ignores properties
+ * in "actual" that are not present in "expected".  This applies recursively, so
+ * that if actual.x.y exists but expected.x.y doesn't (but actual.x and
+ * expected.x are otherwise equivalent), then no error is thrown.
+ *
+ * Arguments:
+ *
+ *     t            the node-tape test context
+ *
+ *     expected     expected object
+ *
+ *     actual       actual object
+ *
+ *     prefix       property name for the top-level objects.  This is used to
+ *                  construct specific error messages when subproperties don't
+ *                  match.
+ */
+function checkDeepSubset(t, expected, actual, prefix) {
+    var k;
+
+    assert.object(t, 't');
+    assert.object(expected, 'expected');
+    assert.object(actual, 'actual');
+    assert.string(prefix, 'prefix');
+
+    for (k in expected) {
+        if (typeof (expected[k]) == 'object' &&
+            typeof (actual[k]) == 'object' &&
+            expected[k] !== null && actual[k] !== null &&
+            !Array.isArray(expected[k]) && !Array.isArray(actual[k])) {
+
+            checkDeepSubset(t, expected[k], actual[k], prefix + '.' + k);
+        } else {
+            t.deepEqual(actual[k], expected[k], prefix + '.' + k + '  matches');
+        }
+    }
+}
+
+/*
+ * Defines a node-tape test-case called "tc.name" for testing a stateless,
+ * synchronous function "func" with specific input "tc.input".  If "tc.output"
+ * is specified, the function should return an object of which "tc.output" is a
+ * subset (according to checkDeepSubset()).  Otherwise, "tc.errmsg" must be
+ * specified, and the function must thrown an exception such that t.throws(...,
+ * errmsg) passes.
+ */
+function defineStatelessTestCase(tape, func, tc) {
+    assert.string(tc.name);
+    assert.object(tc.input);
+    assert.optionalObject(tc.output);
+    assert.ok(tc.output || tc.errmsg);
+    assert.ok(!(tc.output && tc.errmsg));
+
+    tape.test(tc.name, function runTestCase(t) {
+        var rv;
+
+        if (tc.errmsg) {
+            t.throws(function () {
+                func(tc.input);
+            }, tc.errmsg);
+        } else {
+            rv = func(tc.input);
+            assert.object(rv);
+            checkDeepSubset(t, tc.output, rv, 'result');
+        }
+
+        t.end();
+    });
+}
+
 ///--- Exports
 
 module.exports = {
@@ -173,5 +244,7 @@ module.exports = {
     createLogger: createLogger,
     createClient: createClient,
     createServer: createServer,
-    cleanupServer: cleanupServer
+    checkDeepSubset: checkDeepSubset,
+    cleanupServer: cleanupServer,
+    defineStatelessTestCase: defineStatelessTestCase
 };
