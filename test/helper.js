@@ -13,6 +13,9 @@ var child = require('child_process');
 var forkexec = require('forkexec');
 var fs = require('fs');
 var jsprim = require('jsprim');
+var mod_fast = require('fast');
+var mod_net = require('net');
+var mod_url = require('url');
 var path = require('path');
 var stream = require('stream');
 var util = require('util');
@@ -54,10 +57,43 @@ function createClient(opts) {
     clientparams.log = createLogger();
 
     if (opts && opts.unwrapErrors) {
-    	clientparams.unwrapErrors = opts.unwrapErrors;
+        clientparams.unwrapErrors = opts.unwrapErrors;
     }
 
     return (moray.createClient(clientparams));
+}
+
+function makeFastRequest(opts, cb) {
+    var host, port;
+
+    if (process.env['MORAY_TEST_SERVER_REMOTE']) {
+        var parsed = mod_url.parse(process.env['MORAY_TEST_SERVER_REMOTE']);
+        host = parsed.hostname;
+        port = parsed.port;
+    } else {
+        host = '127.0.0.1';
+        port = 2020;
+    }
+
+    var socket = mod_net.connect(port, host);
+
+    socket.on('error', cb);
+
+    socket.on('connect', function () {
+        socket.removeListener('error', cb);
+
+        var client = new mod_fast.FastClient({
+            log: opts.log,
+            nRecentRequests: 100,
+            transport: socket
+        });
+
+        client.rpcBufferAndCallback(opts.call, function (err, data, ndata) {
+            client.detach();
+            socket.destroy();
+            cb(err, data, ndata);
+        });
+    });
 }
 
 function multipleServersSupported() {
@@ -240,6 +276,7 @@ function defineStatelessTestCase(tape, func, tc) {
 ///--- Exports
 
 module.exports = {
+    makeFastRequest: makeFastRequest,
     multipleServersSupported: multipleServersSupported,
     createLogger: createLogger,
     createClient: createClient,
