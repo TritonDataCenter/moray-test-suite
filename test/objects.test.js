@@ -33,6 +33,9 @@ var BUCKET_CFG = {
         str: {
             type: 'string'
         },
+        str_a: {
+            type: '[string]'
+        },
         str_u: {
             type: 'string',
             unique: true
@@ -43,12 +46,18 @@ var BUCKET_CFG = {
         num: {
             type: 'number'
         },
+        num_a: {
+            type: '[number]'
+        },
         num_u: {
             type: 'number',
             unique: true
         },
         bool: {
             type: 'boolean'
+        },
+        bool_a: {
+            type: '[boolean]'
         },
         bool_u: {
             type: 'boolean',
@@ -57,12 +66,18 @@ var BUCKET_CFG = {
         ip: {
             type: 'ip'
         },
+        ip_a: {
+            type: '[ip]'
+        },
         ip_u: {
             type: 'ip',
             unique: true
         },
         subnet: {
             type: 'subnet'
+        },
+        subnet_a: {
+            type: '[subnet]'
         },
         subnet_u: {
             type: 'subnet',
@@ -131,14 +146,14 @@ function assertObject(t, obj, k, v) {
     if (!obj)
         return (undefined);
 
-    t.equal(obj.bucket, b);
-    t.equal(obj.key, k);
-    t.deepEqual(obj.value, v);
-    t.ok(obj._id);
-    t.ok(obj._etag);
-    t.ok(obj._mtime);
+    t.equal(obj.bucket, b, 'has correct "bucket"');
+    t.equal(obj.key, k, 'has correct "key"');
+    t.deepEqual(obj.value, v, 'matches expected value');
+    t.ok(obj._id, 'has "_id"');
+    t.ok(obj._etag, 'has "_etag"');
+    t.ok(obj._mtime, 'has "_mtime"');
     if (v.vnode) {
-        t.ok(obj.value.vnode);
+        t.ok(obj.value.vnode, 'has "vnode"');
     }
     return (undefined);
 }
@@ -436,6 +451,67 @@ test('del object w/etag conflict', function (t) {
         t.end();
     });
 });
+
+test('MORAY-406: Put an object with null values', function (t) {
+    var k = uuid.v4();
+    var v = {
+        str: null,
+        str_a: null,
+        str_u: null,
+        num: null,
+        num_a: null,
+        num_u: null,
+        bool: null,
+        bool_a: null,
+        bool_u: null,
+        ip: null,
+        ip_a: null,
+        ip_u: null,
+        subnet: null,
+        subnet_a: null,
+        subnet_u: null
+    };
+
+    t.test('putObject()', function (t2) {
+        c.putObject(b, k, v, function (err) {
+            t2.ifError(err);
+            t2.end();
+        });
+    });
+
+    t.test('getObject()', function (t2) {
+        c.getObject(b, k, function (err, obj) {
+            t2.ifError(err);
+            assertObject(t2, obj, k, v);
+            t2.end();
+        });
+    });
+});
+
+
+test('MORAY-406: Reject updateObjects() w/ null values for now', function (t) {
+    var fields = Object.keys(BUCKET_CFG.index);
+
+    t.plan(fields.length);
+
+    fields.forEach(function (field) {
+        t.test('update ' + field + '=null', function (t2) {
+            var obj = {};
+            obj[field] = null;
+
+            c.updateObjects(b, obj, '(str_2=hello)', function (err, res) {
+                t2.ok(err, 'updateObjects() should fail');
+                t2.notOk(res, 'No result object');
+                if (err) {
+                    t2.ok(VError.hasCauseWithName(err, 'NotNullableError'),
+                        'Failed due to missing index');
+                }
+                t2.end();
+            });
+        });
+    });
+});
+
 
 /*
  * This test looks just like the previous one, but uses a client that unwraps
@@ -1434,6 +1510,188 @@ test('MORAY-166: update with LIMIT', function (t) {
         } ],
         arg: {}
     }, function (err) {
+        t.ifError(err);
+        t.end();
+    });
+});
+
+
+test('MORAY-403: updateObjects() of every type', function (t) {
+    // UUIDs of objects that will go unaffected by updateObjects()
+    var ignored = [ uuid.v4(), uuid.v4(), uuid.v4(), uuid.v4() ];
+    var ignobj = { str_2: 'hello' };
+
+    // Keys of affected objects
+    var k1 = uuid.v4();
+    var k2 = uuid.v4();
+    var k3 = uuid.v4();
+
+    // Values by which we find objects
+    var v1 = uuid.v4();
+    var v2 = uuid.v4();
+    var v3 = uuid.v4();
+    var v4 = uuid.v4();
+    var v5 = uuid.v4();
+
+    var changed1 = {
+        str: 'a1',
+        str_a: [ 'foo', 'bar', 'baz' ],
+        str_u: 'u1',
+        str_2: v2,
+        num: 1,
+        num_a: [ 1, 1, 2, 3, 5, 8 ],
+        num_u: 2003,
+        bool: true,
+        bool_a: [ true, false, false, true ],
+        bool_u: false,
+        ip: '1.2.3.4',
+        ip_a: [ '1.2.3.4', 'fd00::30e' ],
+        ip_u: '127.0.0.1',
+        subnet: 'fc00::/7',
+        subnet_a: [ 'fe80::/10', 'fc00::/7', '10.0.0.0/8' ],
+        subnet_u: '172.16.0.0/12'
+    };
+
+    var changed2 = {
+        str: 'a2',
+        str_a: [ 'red', 'blue', 'green' ],
+        str_u: 'u2',
+        str_2: v3,
+        num: 2,
+        num_a: [ 1, 10, 100, 1000, 10000 ],
+        num_u: 3002,
+        bool: false,
+        bool_a: [ false, true, true, false ],
+        bool_u: true,
+        ip: '4.3.2.1',
+        ip_a: [ '192.168.1.1', '2001:4860:4860::8888' ],
+        ip_u: '127.0.0.2',
+        subnet: 'fd00:1234::/64',
+        subnet_a: [ 'fd4e::/64', 'fc12:3456::/64', '192.168.0.0/16' ],
+        subnet_u: '172.16.1.0/24'
+    };
+
+    var changed3 = {
+        str_a: [],
+        num_a: [],
+        bool_a: [],
+        ip_a: [],
+        subnet_a: []
+    };
+
+    function doUpdate(fields, filter, count, cb) {
+        c.updateObjects(b, fields, filter, function (err, res) {
+            t.ifError(err, 'updateObjects() error');
+            t.ok(res, 'Result object returned');
+            if (res) {
+                t.ok(res.etag, 'Result has "etag"');
+                t.equal(res.count, count, 'Result has correct "count"');
+            }
+            cb(err);
+        });
+    }
+
+    function checkObject(key, exp, cb) {
+        c.getObject(b, key, function (err, obj) {
+            t.ifError(err, 'getObject() error');
+            assertObject(t, obj, key, exp);
+            cb(err, obj);
+        });
+    }
+
+    var k1exp;
+
+    vasync.pipeline({ funcs: [
+        function (_, cb) {
+            vasync.forEachPipeline({
+                inputs: ignored,
+                func: function (ignore, cb2) {
+                    c.putObject(b, ignore, ignobj, cb2);
+                }
+            }, cb);
+        },
+
+        // Trying to update multiple objects to have same unique field fails
+        function (_, cb) {
+            c.updateObjects(b, changed2, '(str_2=hello)',
+                function (err, res) {
+                t.ok(err, 'updateObjects() should fail');
+                t.notOk(res, 'No result object');
+                if (err) {
+                    t.ok(VError.hasCauseWithName(err, 'UniqueAttributeError'),
+                        'Failed due to unique attribute');
+                }
+                cb();
+            });
+        },
+
+        // Field to update isn't indexed, and can't be updated.
+        function (_, cb) {
+            c.updateObjects(b, { nonexistent: true }, '(str_2=hello)',
+                function (err, res) {
+                t.ok(err, 'updateObjects() should fail');
+                t.notOk(res, 'No result object');
+                if (err) {
+                    t.ok(VError.hasCauseWithName(err, 'NotIndexedError'),
+                        'Failed due to missing index');
+                }
+                cb();
+            });
+        },
+
+        // Insert the first object that we'll be affecting.
+        function (_, cb) { c.putObject(b, k1, { str_2: v1 }, cb); },
+
+        // updateObjects() should update all fields.
+        function (_, cb) {
+            k1exp = changed1;
+            doUpdate(changed1, '(str_2=' + v1 + ')', 1, cb);
+        },
+        function (_, cb) { checkObject(k1, k1exp, cb); },
+
+        // updateObjects() with same filter no longer applies; object unchanged.
+        function (_, cb) {
+            doUpdate(changed2, '(str_2=' + v1 + ')', 0, cb);
+        },
+        function (_, cb) { checkObject(k1, k1exp, cb); },
+
+        // updateObjects() with new filter should find and update all fields.
+        function (_, cb) {
+            k1exp = jsprim.mergeObjects(k1exp, changed2);
+            doUpdate(changed2, '(str_2=' + v2 + ')', 1, cb);
+        },
+        function (_, cb) { checkObject(k1, k1exp, cb); },
+
+        // We should be able to make array-type fields empty.
+        function (_, cb) {
+            k1exp = jsprim.mergeObjects(k1exp, changed3);
+            doUpdate(changed3, '(str_2=' + v3 + ')', 1, cb);
+        },
+        function (_, cb) { checkObject(k1, k1exp, cb); },
+
+        // Add two new objects with the same "str_2" value.
+        function (_, cb) { c.putObject(b, k2, { str_2: v3 }, cb); },
+        function (_, cb) { c.putObject(b, k3, { str_2: v3 }, cb); },
+
+        // Our filter should now find and update all three.
+        function (_, cb) {
+            k1exp = jsprim.mergeObjects(k1exp, { str_2: v4 });
+            doUpdate({ str_2: v4 }, '(str_2=' + v3 + ')', 3, cb);
+        },
+        function (_, cb) { checkObject(k1, k1exp, cb); },
+        function (_, cb) { checkObject(k2, { str_2: v4 }, cb); },
+        function (_, cb) { checkObject(k3, { str_2: v4 }, cb); },
+
+        // The untouched objects should have the same, initial value
+        function (_, cb) {
+            vasync.forEachPipeline({
+                inputs: ignored,
+                func: function (key, cb2) {
+                    checkObject(key, ignobj, cb2);
+                }
+            }, cb);
+        }
+    ] }, function (err) {
         t.ifError(err);
         t.end();
     });
