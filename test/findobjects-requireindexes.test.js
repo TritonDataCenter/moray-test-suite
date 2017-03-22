@@ -174,10 +174,11 @@ tape.test('client() - findobjects()', function (t) {
              */
             error: false,
             /*
-             * However, because the second index added to the bucket hasn't been
-             * reindexed yet, the findObjects request will return no record.
+             * Because the field is being reindexed, Moray will drop it from
+             * the WHERE clause, and check the value of the field after fetching
+             * it.
              */
-            nbRecordsFound: 0
+            nbRecordsFound: 1
         }
     });
 });
@@ -189,7 +190,7 @@ tape.test('client() - findobjects({requireIndexes: false})', function (t) {
         findObjectsOpts: {requireIndexes: false},
         expectedResults: {
             error: false,
-            nbRecordsFound: 0
+            nbRecordsFound: 1
         }
     });
 });
@@ -336,7 +337,7 @@ tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
              * findObjects requests _not_ result in an error.
              */
             error: false,
-            nbRecordsFound: 0
+            nbRecordsFound: 1
         }
     });
 });
