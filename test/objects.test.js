@@ -611,16 +611,16 @@ test('find _mtime', function (t) {
             req.once('error', cb);
             req.once('end', cb);
             req.once('record', function (obj) {
-                t.ok(obj);
+                t.ok(obj, 'record is truthy');
                 if (!obj)
                     return (undefined);
 
                 t.equal(obj.bucket, b);
                 t.equal(obj.key, k);
                 t.deepEqual(obj.value, v);
-                t.ok(obj._id);
-                t.ok(obj._etag);
-                t.ok(obj._mtime);
+                t.ok(obj._id, '_id property is truthy');
+                t.ok(obj._etag, '_etag property is truthy');
+                t.ok(obj._mtime, '_mtime is truthy');
                 found = true;
                 return (undefined);
             });
@@ -628,7 +628,7 @@ test('find _mtime', function (t) {
         arg: {}
     }, function (err) {
         t.ifError(err);
-        t.ok(found);
+        t.ok(found, 'found a record');
         t.end();
     });
 });

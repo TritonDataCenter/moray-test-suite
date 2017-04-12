@@ -19,6 +19,7 @@ var helper = require('./helper');
 var path = require('path');
 var tape = require('tape');
 var vasync = require('vasync');
+var VError = require('verror');
 
 var binpath, testcases;
 var bucket = 'cli_sanity_test_bucket';
@@ -173,8 +174,43 @@ function runNormalSequence(t)
                 callback);
         },
 
+        /*
+         * Field 'field1' is not reindexed yet, so it can't be used in a search
+         * filter when the 'requireIndexes' option is set to 'true'.
+         */
+        function findObjectsRequireIndexes(_, callback) {
+            var filter = 'field1>=3';
+            runCmd([ 'findobjects', '-Hi', bucket, filter ],
+                function (err, info) {
+                var expectedErrMsg = bucket + ' does not have indexes that ' +
+                    'support ' + filter + '. Reindexing fields: ' +
+                    '[ \'field1\' ]. Unindexed fields: []';
+
+                t.ok(err);
+                t.ok(err.message.indexOf(expectedErrMsg) !== -1,
+                    'Error message contains ' + expectedErrMsg);
+
+                callback();
+            });
+        },
+
         function reindexObjects(_, callback) {
             runCmd([ 'reindexobjects', bucket ], callback);
+        },
+
+        /*
+         * Field 'field1' is now reindexed, so it's ok to use it in a search
+         * filter when the 'requireIndexes' option is set to 'true'.
+         */
+        function findObjectsRequireIndexesAfterReindexing(_, callback) {
+            var filter = 'field1>=3';
+            runCmd([ 'findobjects', '-Hi', bucket, filter ],
+                function (err, info) {
+                t.ifErr(err, 'findobjects should succeed when requireIndexes ' +
+                    'is enabled and all fields have been reindexed');
+
+                callback();
+            });
         },
 
         function putObject2(_, callback) {

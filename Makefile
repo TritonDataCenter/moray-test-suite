@@ -28,7 +28,7 @@ CONFIGURE	 = ./tools/configure
 # always cleaned up.  However, on systems that don't provide ctrun(1), this
 # could be commented out.
 #
-CTRUN		 = ctrun -o noorphan
+CTRUN		 ?= ctrun -o noorphan
 
 
 #
@@ -71,6 +71,7 @@ test: | $(FAUCET) $(MORAY_TEST_ENV_FILE)
 	$(CTRUN) node test/arrays.test.js | $(FAUCET) && \
 	$(CTRUN) node test/version.test.js | $(FAUCET) && \
 	$(CTRUN) node test/clientparams.test.js | $(FAUCET) && \
+	$(CTRUN) node test/findobjects-requireindexes.test.js | $(FAUCET) && \
 	$(CTRUN) node test/loop.test.js | bunyan -lfatal )
 	@echo tests passed
 

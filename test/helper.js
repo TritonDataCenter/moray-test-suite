@@ -53,8 +53,12 @@ function createClient(opts) {
 
     clientparams.log = createLogger();
 
-    if (opts && opts.unwrapErrors) {
+    if (opts && opts.unwrapErrors !== undefined) {
     	clientparams.unwrapErrors = opts.unwrapErrors;
+    }
+
+    if (opts && opts.requireIndexes !== undefined) {
+        clientparams.requireIndexes = opts.requireIndexes;
     }
 
     return (moray.createClient(clientparams));
