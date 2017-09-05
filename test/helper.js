@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2016, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var assert = require('assert-plus');
@@ -13,6 +13,9 @@ var child = require('child_process');
 var forkexec = require('forkexec');
 var fs = require('fs');
 var jsprim = require('jsprim');
+var mod_fast = require('fast');
+var mod_net = require('net');
+var mod_url = require('url');
 var path = require('path');
 var stream = require('stream');
 var util = require('util');
@@ -54,7 +57,7 @@ function createClient(opts) {
     clientparams.log = createLogger();
 
     if (opts && opts.unwrapErrors !== undefined) {
-    	clientparams.unwrapErrors = opts.unwrapErrors;
+        clientparams.unwrapErrors = opts.unwrapErrors;
     }
 
     if (opts && opts.requireIndexes !== undefined) {
@@ -62,6 +65,56 @@ function createClient(opts) {
     }
 
     return (moray.createClient(clientparams));
+}
+
+/*
+ * Make a Fast RPC to the Moray server.
+ *
+ * Normally tests would use the Moray client, but the client performs some
+ * sanity checks, and enforces certain behaviour. This function allows for
+ * testing how the Moray server handles bad parameters, and nonexistent
+ * endpoints.
+ *
+ * Arguments:
+ * - opts (Object):
+ *   - log, a Bunyan logger
+ *   - call, the Fast parameters to pass to rpcBufferAndCallback()
+ * - cb (Function), callback that gets passed rpcBufferAndCallback's results
+ */
+function makeFastRequest(opts, cb) {
+    assert.object(opts, 'opts');
+    assert.func(cb, 'callback');
+
+    var host, port;
+
+    if (process.env['MORAY_TEST_SERVER_REMOTE']) {
+        var parsed = mod_url.parse(process.env['MORAY_TEST_SERVER_REMOTE']);
+        host = parsed.hostname;
+        port = parsed.port;
+    } else {
+        host = '127.0.0.1';
+        port = 2020;
+    }
+
+    var socket = mod_net.connect(port, host);
+
+    socket.on('error', cb);
+
+    socket.on('connect', function () {
+        socket.removeListener('error', cb);
+
+        var client = new mod_fast.FastClient({
+            log: opts.log,
+            nRecentRequests: 100,
+            transport: socket
+        });
+
+        client.rpcBufferAndCallback(opts.call, function (err, data, ndata) {
+            client.detach();
+            socket.destroy();
+            cb(err, data, ndata);
+        });
+    });
 }
 
 function multipleServersSupported() {
@@ -244,6 +297,7 @@ function defineStatelessTestCase(tape, func, tc) {
 ///--- Exports
 
 module.exports = {
+    makeFastRequest: makeFastRequest,
     multipleServersSupported: multipleServersSupported,
     createLogger: createLogger,
     createClient: createClient,

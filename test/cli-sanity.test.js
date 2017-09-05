@@ -320,6 +320,10 @@ function runNormalSequence(t)
             runCmd([ 'morayping' ], callback);
         },
 
+        function pingDeep(_, callback) {
+            runCmd([ 'morayping', '-d' ], callback);
+        },
+
         function version(_, callback) {
             runCmd([ 'morayversion' ], callback);
         },

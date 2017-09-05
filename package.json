@@ -12,6 +12,7 @@
 		"assert-plus": "1.0.0",
 		"bunyan": "^1.8.1",
 		"cmdutil": "^1.0.0",
+		"fast": "^2.2.2",
 		"faucet": "0.0.1",
 		"forkexec": "^1.1.0",
 		"kang": "1.0.1",

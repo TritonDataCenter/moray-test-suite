@@ -370,6 +370,18 @@ test('update bucket (versioned not ok 2 -> 1)', function (t) {
 });
 
 
+test('update bucket (bucket not found)', function (t) {
+    c.updateBucket('nonexistent', { }, function (err) {
+        t.ok(err, 'error returned');
+        if (err) {
+            t.ok(VError.hasCauseWithName(err, 'BucketNotFoundError'),
+                'BucketNotFoundError');
+        }
+        t.end();
+    });
+});
+
+
 test('create bucket bad index type', function (t) {
     c.createBucket(b, {index: {foo: 'foo'}}, function (err) {
         t.ok(err);
@@ -503,6 +515,23 @@ test('delete missing bucket', function (t) {
         t.ok(VError.findCauseByName(err, 'BucketNotFoundError') !== null);
         t.ok(err.message);
         t.end();
+    });
+});
+
+
+[ 'buckets_config', 'moray', 'search' ].forEach(function (bucket) {
+    test('delete reserved bucket: "' + bucket + '"', function (t) {
+        c.delBucket(bucket, function (err) {
+            t.ok(err, 'error returned');
+            if (err && VError.hasCauseWithName(err, 'InvalidBucketNameError')) {
+                t.ok(jsprim.endsWith(err.message,
+                    bucket + ' is not a valid bucket name'),
+                    'InvalidBucketNameError');
+            } else {
+                t.ifError(err);
+            }
+            t.end();
+        });
     });
 });
 

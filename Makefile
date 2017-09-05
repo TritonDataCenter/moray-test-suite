@@ -66,6 +66,8 @@ test: | $(FAUCET) $(MORAY_TEST_ENV_FILE)
 	$(CTRUN) node test/close-handles.test.js | $(FAUCET) && \
 	$(CTRUN) node test/buckets.test.js | $(FAUCET) && \
 	$(CTRUN) node test/objects.test.js | $(FAUCET) && \
+	$(CTRUN) node test/invalid-buckets.test.js | $(FAUCET) && \
+	$(CTRUN) node test/invalid-fast.test.js | $(FAUCET) && \
 	$(CTRUN) node test/sql.test.js | $(FAUCET) && \
 	$(CTRUN) node test/integ.test.js | $(FAUCET) && \
 	$(CTRUN) node test/arrays.test.js | $(FAUCET) && \
