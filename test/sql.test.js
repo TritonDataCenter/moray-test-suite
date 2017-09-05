@@ -102,3 +102,20 @@ test('sql - cleanup', function (t) {
         t.end();
     });
 });
+
+test('sql - client timeout respected', function (t) {
+    q = c.sql('SELECT pg_sleep(5);', [], { timeout: 1000 });
+    q.on('error', function (err) {
+        t.ok(VError.hasCauseWithName(err, 'QueryTimeoutError'),
+            'correct error');
+        t.end();
+    });
+    q.on('record', function (r) {
+        t.fail('no row should be returned');
+        t.deepEqual(r, null, 'no row should be returned - value');
+    });
+    q.on('end', function (r) {
+        t.fail('"error" should have been emitted');
+        t.end();
+    });
+});
