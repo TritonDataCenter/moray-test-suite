@@ -91,7 +91,7 @@ test('close() with outstanding callback request', function (t) {
             t.end();
         });
 
-        setImmediate(function () { c2.close(); });
+        c2.close();
     });
 });
 
@@ -118,7 +118,7 @@ test('close() with outstanding event-emitter request', function (t) {
             t.end();
         });
 
-        setImmediate(function () { c2.close(); });
+        c2.close();
     });
 });
 
