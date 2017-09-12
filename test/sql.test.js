@@ -103,6 +103,24 @@ test('sql - cleanup', function (t) {
     });
 });
 
+test('sql - error after timeout', function (t) {
+    q = c.sql('SELECT pg_sleep(5); SELECT * FROM nonexistent;',
+        [], { timeout: 1 });
+    q.on('error', function (err) {
+        t.ok(VError.hasCauseWithName(err, 'QueryTimeoutError'),
+            'correct error');
+        t.end();
+    });
+    q.on('record', function (r) {
+        t.fail('no row should be returned');
+        t.deepEqual(r, null, 'no row should be returned - value');
+    });
+    q.on('end', function () {
+        t.fail('"error" should have been emitted');
+        t.end();
+    });
+});
+
 test('sql - client timeout respected', function (t) {
     q = c.sql('SELECT pg_sleep(5);', [], { timeout: 1000 });
     q.on('error', function (err) {
@@ -114,7 +132,7 @@ test('sql - client timeout respected', function (t) {
         t.fail('no row should be returned');
         t.deepEqual(r, null, 'no row should be returned - value');
     });
-    q.on('end', function (r) {
+    q.on('end', function () {
         t.fail('"error" should have been emitted');
         t.end();
     });
