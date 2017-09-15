@@ -17,7 +17,7 @@
 
 var assert = require('assert-plus');
 var jsprim = require('jsprim');
-var test = require('tape');
+var tape = require('tape');
 var vasync = require('vasync');
 var VError = require('verror');
 
@@ -213,6 +213,28 @@ var BAD_BUCKETS = [
         errmsg: 'bucket.options.version should be >= 0'
     }
 ];
+
+function test(name, setup) {
+    var server;
+
+    tape.test(name + ' - setup', function (t) {
+        helper.createServer(null, function (s) {
+            server = s;
+            t.end();
+        });
+    });
+
+    tape.test(name + ' - main', function (t) {
+        setup(t);
+    });
+
+    tape.test(name + ' - teardown', function (t) {
+        helper.cleanupServer(server, function () {
+            t.pass('closed');
+            t.end();
+        });
+    });
+}
 
 ///--- Tests
 

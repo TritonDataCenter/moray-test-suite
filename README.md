@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright (c) 2016, Joyent, Inc.
+    Copyright (c) 2017, Joyent, Inc.
 -->
 
 # Moray test suite
@@ -52,6 +52,16 @@ by hand:
     $ node test/buckets.test.js
 
 ## Configuration
+
+The test suite supports both a standalone mode, in which the test runner is
+responsible for starting any Moray servers that it needs, and a remote mode, in
+which the test suite runs against an existing Moray server.  The remote mode
+exists primarily for flexibility during development, as it allows you to point
+the test suite at any network endpoint that speaks the Moray protocol.  That
+could be a proxy server, or an instrumented Moray, or a process in a deployed
+Manta system, for example.  However, the remote mode skips some tests that
+require multiple servers.  **Before integration, changes should pass the test
+suite in standalone mode.**
 
 The configuration file specifies:
 

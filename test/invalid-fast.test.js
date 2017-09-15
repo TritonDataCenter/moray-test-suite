@@ -20,7 +20,7 @@
  */
 
 var assert = require('assert-plus');
-var test = require('tape');
+var tape = require('tape');
 var vasync = require('vasync');
 var VError = require('verror');
 
@@ -288,6 +288,28 @@ var RPC_ARG_COUNTS = [
     { method: 'ping', count: 1 },
     { method: 'version', count: 1 }
 ];
+
+function test(name, setup) {
+    var server;
+
+    tape.test(name + ' - setup', function (t) {
+        helper.createServer(null, function (s) {
+            server = s;
+            t.end();
+        });
+    });
+
+    tape.test(name + ' - main', function (t) {
+        setup(t);
+    });
+
+    tape.test(name + ' - teardown', function (t) {
+        helper.cleanupServer(server, function () {
+            t.pass('closed');
+            t.end();
+        });
+    });
+}
 
 
 ///--- Tests

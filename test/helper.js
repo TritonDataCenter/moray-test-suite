@@ -142,7 +142,8 @@ function createServer(opts, cb) {
 
     env = jsprim.deepCopy(process.env);
     if (opts.portOverride) {
-        env['MORAY_TEST_EXTRA_ARGS'] = '-p ' + opts.portOverride;
+        env['MORAY_TEST_EXTRA_ARGS'] = '-p ' + opts.portOverride +
+            ' -k ' + (opts.portOverride + 1000);
     }
 
     cp = child.spawn('bash', [ '-c', process.env['MORAY_TEST_SERVER_RUN'] ], {
@@ -159,7 +160,7 @@ function createServer(opts, cb) {
 
     pt.on('data', function (c) {
         seen += c.toString('utf8');
-        if (!ready && /moray listening on \d+/.test(seen) &&
+        if (!ready && /moray listening on .*\d+/i.test(seen) &&
             /manatee ready/.test(seen)) {
             cp.stdout.unpipe(pt);
             ready = true;
