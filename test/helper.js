@@ -19,6 +19,7 @@ var mod_url = require('url');
 var path = require('path');
 var stream = require('stream');
 var util = require('util');
+var VError = require('verror');
 
 var bunyan = require('bunyan');
 var moray = require('moray'); // client
@@ -295,6 +296,97 @@ function defineStatelessTestCase(tape, func, tc) {
     });
 }
 
+function performFindObjectsTest(t, client, options) {
+    assert.object(t, 't');
+    assert.object(client, 'client');
+    assert.object(options, 'options');
+    assert.string(options.bucketName, 'options.bucketName');
+    assert.string(options.searchFilter, 'options.searchFilter');
+    assert.object(options.findObjectsOpts, 'options.findObjectsOpts');
+    assert.object(options.expectedResults, 'options.expectedResults');
+    assert.bool(options.expectedResults.error, 'options.expectedResults.error');
+    assert.number(options.expectedResults.nbRecordsFound,
+        'options.expectedResults.nbRecordsFound');
+    assert.optionalString(options.expectedResults.errMsg,
+        'options.expectedResults.errMsg');
+    assert.optionalFunc(options.expectedResults.verifyRecords,
+        'options.expectedResults.verifyRecords');
+
+    var bucketName = options.bucketName;
+    var errorExpected = options.expectedResults.error;
+    var findObjectsOpts = jsprim.deepCopy(options.findObjectsOpts);
+    var nbRecordsExpected = options.expectedResults.nbRecordsFound;
+    var nbRecordsFound = 0;
+    var req;
+    var searchFilter = options.searchFilter;
+
+    /*
+     * A function that accepts an array or all the records
+     * found during a test. It should return either true
+     * or false, depending on whether the test should pass
+     * or fail. This function is currently used to verify
+     * the order of the records returned to a findobjects
+     * query that requests a sort.
+     */
+    var verifyRecords = options.expectedResults.verifyRecords;
+    var recordsReceived = [];
+
+    /*
+     * We intentionally bypass the bucket cache when performing findObjects
+     * requests because we want to run tests before and after the test bucket
+     * has been reindexed, and we don't want to wait for all buckets to have
+     * their cache expired before we can be sure that all instances of the moray
+     * service we're connected to have their bucket cache reflect the fact that
+     * all indexes are usable.
+     */
+    findObjectsOpts.noBucketCache = true;
+
+    req = client.findObjects(bucketName, searchFilter, findObjectsOpts);
+
+    req.on('error', function onFindObjError(findObjErr) {
+        var expectedErrorName = 'NotIndexedError';
+        var expectedErrMsg = options.expectedResults.errMsg;
+
+        if (errorExpected) {
+            t.ok(findObjErr, 'findObjects request should error');
+            t.ok(VError.hasCauseWithName(findObjErr, expectedErrorName),
+                'error name should be ' + expectedErrorName);
+
+            if (expectedErrMsg) {
+                t.ok(findObjErr.message.indexOf(expectedErrMsg) !== -1,
+                    'Error message should include: ' + expectedErrMsg);
+            }
+
+            t.equal(nbRecordsFound, 0,
+                'no record should have been sent as part of the response');
+        } else {
+            t.ifErr(findObjErr, 'findObjects request should not error');
+        }
+
+        t.end();
+    });
+
+    req.on('record', function onRecord(record) {
+        ++nbRecordsFound;
+        recordsReceived.push(record);
+    });
+
+    req.on('end', function onFindObjEnd() {
+        if (errorExpected) {
+            t.fail('should not get end event, only error event');
+        } else {
+            t.pass('should get end event and not error');
+            t.equal(nbRecordsFound, nbRecordsExpected, 'should have found ' +
+                nbRecordsExpected + ' record');
+            if (verifyRecords) {
+                t.ok(verifyRecords(recordsReceived), 'verifyRecords failed');
+            }
+        }
+        t.end();
+    });
+}
+
+
 ///--- Exports
 
 module.exports = {
@@ -305,5 +397,6 @@ module.exports = {
     createServer: createServer,
     checkDeepSubset: checkDeepSubset,
     cleanupServer: cleanupServer,
-    defineStatelessTestCase: defineStatelessTestCase
+    defineStatelessTestCase: defineStatelessTestCase,
+    performFindObjectsTest: performFindObjectsTest
 };

@@ -73,6 +73,7 @@ test: | $(FAUCET) $(MORAY_TEST_ENV_FILE)
 	$(CTRUN) node test/arrays.test.js | $(FAUCET) && \
 	$(CTRUN) node test/version.test.js | $(FAUCET) && \
 	$(CTRUN) node test/clientparams.test.js | $(FAUCET) && \
+	$(CTRUN) node test/findobjects.test.js | $(FAUCET) && \
 	$(CTRUN) node test/findobjects-requireindexes.test.js | $(FAUCET) && \
 	$(CTRUN) node test/loop.test.js | bunyan -lfatal )
 	@echo tests passed

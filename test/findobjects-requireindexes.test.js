@@ -112,79 +112,6 @@ function reindexBucket(bucketName, client, callback) {
     doReindex();
 }
 
-function performFindObjectsTest(t, client, options) {
-    assert.object(t, 't');
-    assert.object(client, 'client');
-    assert.object(options, 'options');
-    assert.string(options.bucketName, 'options.bucketName');
-    assert.string(options.searchFilter, 'options.searchFilter');
-    assert.object(options.findObjectsOpts, 'options.findObjectsOpts');
-    assert.object(options.expectedResults, 'options.expectedResults');
-    assert.bool(options.expectedResults.error, 'options.expectedResults.error');
-    assert.number(options.expectedResults.nbRecordsFound,
-        'options.expectedResults.nbRecordsFound');
-    assert.optionalString(options.expectedResults.errMsg,
-        'options.expectedResults.errMsg');
-
-    var bucketName = options.bucketName;
-    var errorExpected = options.expectedResults.error;
-    var findObjectsOpts = jsprim.deepCopy(options.findObjectsOpts);
-    var nbRecordsExpected = options.expectedResults.nbRecordsFound;
-    var nbRecordsFound = 0;
-    var req;
-    var searchFilter = options.searchFilter;
-
-    /*
-     * We intentionally bypass the bucket cache when performing findObjects
-     * requests because we want to run tests before and after the test bucket
-     * has been reindexed, and we don't want to wait for all buckets to have
-     * their cache expired before we can be sure that all instances of the moray
-     * service we're connected to have their bucket cache reflect the fact that
-     * all indexes are usable.
-     */
-    findObjectsOpts.noBucketCache = true;
-
-    req = client.findObjects(bucketName, searchFilter, findObjectsOpts);
-
-    req.on('error', function onFindObjError(findObjErr) {
-        var expectedErrorName = 'NotIndexedError';
-        var expectedErrMsg = options.expectedResults.errMsg;
-
-        if (errorExpected) {
-            t.ok(findObjErr, 'findObjects request should error');
-            t.ok(VError.hasCauseWithName(findObjErr, expectedErrorName),
-                'error name should be ' + expectedErrorName);
-
-            if (expectedErrMsg) {
-                t.ok(findObjErr.message.indexOf(expectedErrMsg) !== -1,
-                    'Error message should include: ' + expectedErrMsg);
-            }
-
-            t.equal(nbRecordsFound, 0,
-                'no record should have been sent as part of the response');
-        } else {
-            t.ifErr(findObjErr, 'findObjects request should not error');
-        }
-
-        t.end();
-    });
-
-    req.on('record', function onRecord(record) {
-        ++nbRecordsFound;
-    });
-
-    req.on('end', function onFindObjEnd() {
-        if (errorExpected) {
-            t.fail('should not get end event, only error event');
-        } else {
-            t.pass('should get end event and not error');
-            t.equal(nbRecordsFound, nbRecordsExpected, 'should have found ' +
-                nbRecordsExpected + ' record');
-        }
-        t.end();
-    });
-}
-
 tape.test('setup', function (t) {
     vasync.pipeline({arg: {}, funcs: [
         function createServer(ctx, next) {
@@ -235,7 +162,7 @@ tape.test('setup', function (t) {
 });
 
 tape.test('client() - findobjects()', function (t) {
-    performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {},
@@ -256,7 +183,7 @@ tape.test('client() - findobjects()', function (t) {
 });
 
 tape.test('client() - findobjects({requireIndexes: false})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: false},
@@ -268,7 +195,7 @@ tape.test('client() - findobjects({requireIndexes: false})', function (t) {
 });
 
 tape.test('client() - findobjects({requireIndexes: true})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: true},
@@ -289,7 +216,7 @@ tape.test('client() - findobjects({requireIndexes: true})', function (t) {
 function createTestFindobjectsRequireIndexes(searchFilter) {
     tape.test('client() - findobjects(' + searchFilter + ', {requireIndexes: ' +
         'true})', function (t) {
-        performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
+        helper.performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
             bucketName: TEST_BUCKET,
             searchFilter: searchFilter,
             findObjectsOpts: {requireIndexes: true},
@@ -310,7 +237,7 @@ function createTestFindobjectsRequireIndexes(searchFilter) {
 FILTERS_ON_INTERNAL_FIELDS.forEach(createTestFindobjectsRequireIndexes);
 
 tape.test('client({requireIndexes: true}) - findobjects()', function (t) {
-    performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {},
@@ -332,7 +259,7 @@ tape.test('client({requireIndexes: true}) - findobjects()', function (t) {
 FILTERS_ON_INTERNAL_FIELDS.forEach(function (searchFilter) {
     tape.test('client({requireIndexes: true}) - findobjects(' + searchFilter +
         ')', function (t) {
-        performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+        helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
             bucketName: TEST_BUCKET,
             searchFilter: searchFilter,
             findObjectsOpts: {},
@@ -352,7 +279,7 @@ FILTERS_ON_INTERNAL_FIELDS.forEach(function (searchFilter) {
 
 tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
     'true})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: true},
@@ -375,7 +302,7 @@ tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
 function createTestClientRequiresIndexes(searchFilter) {
     tape.test('client({requireIndexes: true}) - findobjects(' + searchFilter +
         ', {requireIndexes: true})', function (t) {
-        performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+        helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
             bucketName: TEST_BUCKET,
             searchFilter: searchFilter,
             findObjectsOpts: {requireIndexes: true},
@@ -398,7 +325,7 @@ FILTERS_ON_INTERNAL_FIELDS.forEach(createTestClientRequiresIndexes);
 
 tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
     'false})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: false},
@@ -417,7 +344,7 @@ tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
 function createTestRequireIndexesOverriden(searchFilter) {
     tape.test('client({requireIndexes: true}) - findobjects(' + searchFilter +
         ', {requireIndexes: false})', function (t) {
-        performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+        helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
             bucketName: TEST_BUCKET,
             searchFilter: searchFilter,
             findObjectsOpts: {requireIndexes: false},
@@ -452,7 +379,7 @@ tape.test('reindexObjects', function (t) {
 });
 
 tape.test('client() - findobjects()', function (t) {
-    performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {},
@@ -464,7 +391,7 @@ tape.test('client() - findobjects()', function (t) {
 });
 
 tape.test('client() - findobjects({requireIndexes: true})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITHOUT_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: true},
@@ -476,7 +403,7 @@ tape.test('client() - findobjects({requireIndexes: true})', function (t) {
 });
 
 tape.test('client({requireIndexes: true}) - findobjects()', function (t) {
-    performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {},
@@ -489,7 +416,7 @@ tape.test('client({requireIndexes: true}) - findobjects()', function (t) {
 
 tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
     'false})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: false},
@@ -502,7 +429,7 @@ tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
 
 tape.test('client({requireIndexes: true}) - findobjects({requireIndexes: ' +
     'true})', function (t) {
-    performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
+    helper.performFindObjectsTest(t, CLIENT_WITH_REQUIRE_INDEXES, {
         bucketName: TEST_BUCKET,
         searchFilter: TEST_SEARCH_FILTER,
         findObjectsOpts: {requireIndexes: true},
