@@ -176,6 +176,18 @@ var BAD_BUCKETS = [
             index: {
                 foo: {
                     type: 'string',
+                    pgIndexDisabled: 'yes'
+                }
+            }
+        },
+        errname: 'InvalidBucketConfigError',
+        errmsg: 'bucket.index[\'foo\'].pgIndexDisabled should be boolean'
+    },
+    {
+        config: {
+            index: {
+                foo: {
+                    type: 'string',
                     invalid: 'foo'
                 }
             }
