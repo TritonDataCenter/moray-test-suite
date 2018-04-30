@@ -66,7 +66,9 @@ tape.test('client close actually closes sockets', function (t) {
         }
     ], function (err) {
         t.error(err);
-        t.equal(0, process._getActiveHandles().length);
+        t.deepEqual([], process._getActiveHandles().filter(function (h) {
+            return (h !== process.stderr && h !== process.stdout);
+        }));
         t.end();
     });
 });
