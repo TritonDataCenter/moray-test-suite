@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2016, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var jsprim = require('jsprim');
@@ -96,7 +96,6 @@ var BUCKET_CFG = {
     }],
     options: {
         version: 1,
-        trackModification: true,
         guaranteeOrder: true
     }
 };
@@ -926,46 +925,24 @@ test('find _txn_snap', function (t) {
 });
 
 
-
-test('trackModification (MANTA-269)', function (t) {
-    var k = uuid.v4();
-    var v = {
-        str: 'hi'
+test('trackModification is no longer supported', function (t) {
+    var bname = 'moray_unit_test_track_mod_' + uuid.v4().substr(0, 7);
+    var bcfg = {
+        options: {
+            version: 9000,
+            trackModification: true
+        }
     };
-    var id1;
 
-    vasync.pipeline({
-        funcs: [ function create(_, cb) {
-            c.putObject(b, k, v, cb);
-        }, function getOne(_, cb) {
-            c.getObject(b, k, {noCache: true}, function (err, obj) {
-                if (err) {
-                    cb(err);
-                } else {
-                    t.ok(obj);
-                    assertObject(t, obj, k, v);
-                    id1 = obj._id;
-                    cb();
-                }
-            });
-        }, function update(_, cb) {
-            c.putObject(b, k, v, cb);
-        }, function getTwo(_, cb) {
-            c.getObject(b, k, {noCache: true}, function (err, obj) {
-                if (err) {
-                    cb(err);
-                } else {
-                    t.ok(obj);
-                    assertObject(t, obj, k, v);
-                    t.notEqual(id1, obj._id);
-                    cb();
-                }
-            });
-        } ],
-        arg: {}
-    }, function (err) {
-        t.ifError(err);
+    c.createBucket(bname, bcfg, function (err) {
+        if (!err) {
+            t.fail('bucket creation with "trackModification" must fail');
+            t.end();
+            return;
+        }
 
+        t.ok(err.message.match(/no longer supported/),
+          'bucket creation with "trackModification" reports failure');
         t.end();
     });
 });
