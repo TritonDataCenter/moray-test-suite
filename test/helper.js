@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var assert = require('assert-plus');
@@ -161,8 +161,7 @@ function createServer(opts, cb) {
 
     pt.on('data', function (c) {
         seen += c.toString('utf8');
-        if (!ready && /moray listening on .*\d+/i.test(seen) &&
-            /manatee ready/.test(seen)) {
+        if (!ready && /moray listening on .*\d+/i.test(seen)) {
             cp.stdout.unpipe(pt);
             ready = true;
             clearTimeout(t);

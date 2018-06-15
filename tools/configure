@@ -8,7 +8,7 @@
  */
 
 /*
- * Copyright (c) 2016, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -695,7 +695,7 @@ function readJsonFile(filename, callback)
         try {
             c = JSON.parse(contents);
         } catch (ex) {
-            callback(new VError(err, 'parse "%s"', filename));
+            callback(new VError(ex, 'parse "%s"', filename));
             return;
         }
 
