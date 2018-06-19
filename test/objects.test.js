@@ -17,6 +17,7 @@ var util = require('util');
 var net = require('net');
 var VError = require('verror');
 
+var fmt = util.format;
 var helper = require('./helper.js');
 
 
@@ -30,6 +31,23 @@ var uuid = {
 
 var BUCKET_CFG = {
     index: {
+        date: {
+            type: 'date'
+        },
+        date_a: {
+            type: '[date]'
+        },
+        date_u: {
+            type: 'date',
+            unique: true
+        },
+        dater: {
+            type: 'daterange'
+        },
+        dater_u: {
+            type: 'daterange',
+            unique: true
+        },
         str: {
             type: 'string'
         },
@@ -53,6 +71,13 @@ var BUCKET_CFG = {
             type: 'number',
             unique: true
         },
+        numr: {
+            type: 'numrange'
+        },
+        numr_u: {
+            type: 'numrange',
+            unique: true
+        },
         bool: {
             type: 'boolean'
         },
@@ -73,6 +98,16 @@ var BUCKET_CFG = {
             type: 'ip',
             unique: true
         },
+        mac: {
+            type: 'mac'
+        },
+        mac_a: {
+            type: '[mac]'
+        },
+        mac_u: {
+            type: 'mac',
+            unique: true
+        },
         subnet: {
             type: 'subnet'
         },
@@ -81,6 +116,13 @@ var BUCKET_CFG = {
         },
         subnet_u: {
             type: 'subnet',
+            unique: true
+        },
+        uuid: {
+            type: 'uuid'
+        },
+        uuid_u: {
+            type: 'uuid',
             unique: true
         }
     },
@@ -103,6 +145,20 @@ var BUCKET_CFG = {
 var c; // client
 var server;
 var b; // bucket
+
+var INDEXES = Object.keys(BUCKET_CFG.index);
+
+var NUM_NON_UNIQUE_INDEXES = INDEXES.reduce(function (acc, i) {
+    return acc + (BUCKET_CFG.index[i].unique ? 0 : 1);
+}, 0);
+
+var NUM_UNIQUE_INDEXES = INDEXES.reduce(function (acc, i) {
+    return acc + (BUCKET_CFG.index[i].unique ? 1 : 0);
+}, 0);
+
+var NUM_ARRAY_INDEXES = INDEXES.reduce(function (acc, i) {
+    return acc + (BUCKET_CFG.index[i].type[0] === '[' ? 1 : 0);
+}, 0);
 
 function test(name, setup) {
     tape.test(name + ' - setup', function (t) {
@@ -454,22 +510,37 @@ test('del object w/etag conflict', function (t) {
 test('MORAY-406: Put an object with null values', function (t) {
     var k = uuid.v4();
     var v = {
+        date: null,
+        date_a: null,
+        date_u: null,
+        dater: null,
+        dater_u: null,
         str: null,
         str_a: null,
         str_u: null,
+        str_2: null,
         num: null,
         num_a: null,
         num_u: null,
+        numr: null,
+        numr_u: null,
         bool: null,
         bool_a: null,
         bool_u: null,
         ip: null,
         ip_a: null,
         ip_u: null,
+        mac: null,
+        mac_a: null,
+        mac_u: null,
         subnet: null,
         subnet_a: null,
-        subnet_u: null
+        subnet_u: null,
+        uuid: null,
+        uuid_u: null
     };
+
+    t.equal(Object.keys(v).length, INDEXES.length, 'all fields tested');
 
     t.test('putObject()', function (t2) {
         c.putObject(b, k, v, function (err) {
@@ -1510,50 +1581,87 @@ test('MORAY-403: updateObjects() of every type', function (t) {
     var v4 = uuid.v4();
 
     var changed1 = {
+        str_2: v2,
+
+        date: '2018-06-14T20:36:55.151Z',
+        date_u: '1920-04-13T12:30:00.000Z',
+        date_a: [ '2015-06-29T01:23:45.678Z', '2016-06-15T00:00:00.000Z' ],
+        dater: '[1861-04-12T00:00:00.000Z,1865-05-09T00:00:00.000Z]',
+        dater_u: '(1835-01-25T04:00:00.000Z,1835-01-25T07:00:00.000Z)',
         str: 'a1',
         str_a: [ 'foo', 'bar', 'baz' ],
         str_u: 'u1',
-        str_2: v2,
         num: 1,
         num_a: [ 1, 1, 2, 3, 5, 8 ],
         num_u: 2003,
+        numr: '(9000,)',
+        numr_u: '(2,100]',
         bool: true,
         bool_a: [ true, false, false, true ],
         bool_u: false,
         ip: '1.2.3.4',
         ip_a: [ '1.2.3.4', 'fd00::30e' ],
         ip_u: '127.0.0.1',
+        mac: '23:56:dc:b1:6a:d6',
+        mac_a: [ '1b:a5:bc:32:ab:d5', '50:f4:66:89:48:90' ],
+        mac_u: '1e:da:0b:d2:93:da',
         subnet: 'fc00::/7',
         subnet_a: [ 'fe80::/10', 'fc00::/7', '10.0.0.0/8' ],
-        subnet_u: '172.16.0.0/12'
+        subnet_u: '172.16.0.0/12',
+        uuid: '392d019e-7723-4db7-a830-ff1a2415a5bc',
+        uuid_u: '62f13c43-59aa-c188-f40b-aeca10628785'
     };
 
     var changed2 = {
+        str_2: v3,
+
+        date: '1823-12-02T00:00:00.000Z',
+        date_u: '0528-06-21T12:03:00.000Z',
+        date_a: [ '1582-10-04T23:59:59.999Z', '1582-10-15T00:00:00.000Z' ],
+        dater: '[1618-05-23T00:00:00.000Z,1648-05-15T00:00:00.000Z]',
+        dater_u: '(1483-11-10T00:00:00.000Z,1546-02-18T00:00:00.000Z]',
         str: 'a2',
         str_a: [ 'red', 'blue', 'green' ],
         str_u: 'u2',
-        str_2: v3,
         num: 2,
         num_a: [ 1, 10, 100, 1000, 10000 ],
         num_u: 3002,
+        numr: '(,9000)',
+        numr_u: '[2,100)',
         bool: false,
         bool_a: [ false, true, true, false ],
         bool_u: true,
         ip: '4.3.2.1',
         ip_a: [ '192.168.1.1', '2001:4860:4860::8888' ],
         ip_u: '127.0.0.2',
+        mac: '3f:30:6e:af:f5:c1',
+        mac_a: [
+            '54:d1:2a:38:84:c9',
+            '12:b9:58:25:41:5c',
+            '51:8f:55:00:ac:60'
+        ],
+        mac_u: '01:ae:57:fa:f4:8c',
         subnet: 'fd00:1234::/64',
         subnet_a: [ 'fd4e::/64', 'fc12:3456::/64', '192.168.0.0/16' ],
-        subnet_u: '172.16.1.0/24'
+        subnet_u: '172.16.1.0/24',
+        uuid: '1d96d942-9be7-68ea-f9f9-e9fbe0b7a18b',
+        uuid_u: '69bf5a59-869c-6da4-f2b5-dd1ed6aa977e'
     };
 
     var changed3 = {
+        date_a: [],
         str_a: [],
         num_a: [],
         bool_a: [],
         ip_a: [],
+        mac_a: [],
         subnet_a: []
     };
+
+    t.equal(Object.keys(changed1).length, INDEXES.length, 'all fields tested');
+    t.equal(Object.keys(changed2).length, INDEXES.length, 'all fields tested');
+    t.equal(Object.keys(changed3).length, NUM_ARRAY_INDEXES,
+        'all array fields tested');
 
     function doUpdate(fields, filter, count, cb) {
         c.updateObjects(b, fields, filter, function (err, res) {
@@ -1904,7 +2012,7 @@ test('MORAY-291: add partial ip not ok', function (t) {
             c.putObject(b, k, v, function (err, meta) {
                 if (err) {
                     t.ok(err, 'received an error');
-                    t.ok(jsprim.endsWith(err.message, errmsg),
+                    t.notEqual(err.message.indexOf(errmsg), -1,
                         'with the right message');
                     return (cb());
                 }
@@ -1930,8 +2038,8 @@ test('MORAY-291: add ip/cidr not ok', function (t) {
             c.putObject(b, k, v, function (err, meta) {
                 if (err) {
                     t.ok(err, 'received an error');
-                    t.ok(jsprim.endsWith(err.message, errmsg,
-                        'with the right message'));
+                    t.notEqual(err.message.indexOf(errmsg), -1,
+                        'with the right message');
                     return (cb());
                 }
                 t.notOk(false, 'did not error on ip/cidr input');
@@ -2194,8 +2302,32 @@ test('MORAY-291: able to query <= on IP types', function (t) {
 test('MORAY-298: presence filter works for all types', function (t) {
     var recs = [
         {
+            k: 'date',
+            v: '1989-11-09T21:43:56.987Z'
+        },
+        {
+            k: 'date_a',
+            v: [ '1961-08-13T00:11:22.333Z' ]
+        },
+        {
+            k: 'date_u',
+            v: '1961-08-13T00:11:22.333Z'
+        },
+        {
+            k: 'dater',
+            v: '[1776-07-04T00:00:00.000Z,)'
+        },
+        {
+            k: 'dater_u',
+            v: '[1492-12-25T00:00:00.000Z,)'
+        },
+        {
             k: 'str',
             v: 'string'
+        },
+        {
+            k: 'str_a',
+            v: [ 'my string' ]
         },
         {
             k: 'str_u',
@@ -2206,8 +2338,28 @@ test('MORAY-298: presence filter works for all types', function (t) {
             v: 40
         },
         {
+            k: 'num_a',
+            v: [ 75.75 ]
+        },
+        {
+            k: 'num_u',
+            v: 50.521
+        },
+        {
+            k: 'numr',
+            v: '[18,)'
+        },
+        {
+            k: 'numr_u',
+            v: '[21,)'
+        },
+        {
             k: 'bool',
             v: true
+        },
+        {
+            k: 'bool_a',
+            v: [ true, false, true ]
         },
         {
             k: 'bool_u',
@@ -2218,18 +2370,48 @@ test('MORAY-298: presence filter works for all types', function (t) {
             v: '192.168.5.2'
         },
         {
+            k: 'ip_a',
+            v: [ '10.10.10.25', '10.50.20.35', '10.75.35.30' ]
+        },
+        {
             k: 'ip_u',
             v: '192.168.5.3'
+        },
+        {
+            k: 'mac',
+            v: '52:fa:1e:e3:ef:9b'
+        },
+        {
+            k: 'mac_a',
+            v: [ '32:ed:64:95:c0:b3', '4d:c8:5e:c8:56:d3' ]
+        },
+        {
+            k: 'mac_u',
+            v: '44:bc:b2:10:15:87'
         },
         {
             k: 'subnet',
             v: '192.168.5.0/24'
         },
         {
+            k: 'subnet_a',
+            v: [ '192.168.4.0/24', '192.168.5.0/24', '192.168.6.0/24' ]
+        },
+        {
             k: 'subnet_u',
             v: '192.168.6.0/24'
+        },
+        {
+            k: 'uuid',
+            v: '9f100df6-43e8-64fd-f109-ba9cfbec8cdb'
+        },
+        {
+            k: 'uuid_u',
+            v: '4201e559-174b-c756-9cfc-fdd1e2ff92fe'
         }
     ];
+
+    t.equal(recs.length, INDEXES.length - 1, 'all fields tested');
 
     vasync.forEachParallel({
         inputs: recs,
@@ -2261,7 +2443,7 @@ test('MORAY-298: presence filter works for all types', function (t) {
 
                 req.on('record', function (obj) {
                     n++;
-                    t.equal(obj.value[rec.k], rec.v, 'value' + desc);
+                    t.deepEqual(obj.value[rec.k], rec.v, 'value' + desc);
                 });
 
                 return req;
@@ -2400,6 +2582,352 @@ test('MORAY-311: ext filters survive undefined fields', function (t) {
         }, function (err) {
             t.ifError(err);
             t.end();
+        });
+    });
+});
+
+test('UniqueAttributeError for every type', function (t) {
+    var conflict = {
+        date_u: '2015-10-21T00:00:00.000Z',
+        dater_u: '(2015-10-21T00:00:00.000Z,)',
+        str_u: 'hello',
+        num_u: 40,
+        numr_u: '(9000,)',
+        bool_u: true,
+        ip_u: '1.2.3.4',
+        mac_u: '58:57:1a:d1:42:a1',
+        subnet_u: '10.0.0.0/8',
+        uuid_u: '725f6c18-12de-c9ef-fb37-d3d14ba3d24f'
+    };
+
+    function checkConflicts(_, cb) {
+        function checkConflict(attr, cb2) {
+            var o = {};
+            o[attr] = conflict[attr];
+
+            c.putObject(b, uuid.v4(), o, function (err) {
+                var msg =
+                    fmt('putObject(%j) fails with UniqueAttributeError', o);
+
+                if (err) {
+                    if (VError.hasCauseWithName(err, 'UniqueAttributeError')) {
+                        t.pass(msg);
+                    } else {
+                        t.ifError(err, msg);
+                    }
+                } else {
+                    t.fail(msg);
+                }
+
+                cb2();
+            });
+        }
+
+        vasync.forEachPipeline({
+            inputs: Object.keys(conflict),
+            func: checkConflict
+        }, cb);
+    }
+
+    function noConflict(attr, value) {
+        return function (_, cb) {
+            var k = uuid.v4();
+            var o = {};
+            o[attr] = value;
+
+            c.putObject(b, k, o, function (pErr) {
+                if (pErr) {
+                    t.ifError(pErr, 'putObject() error');
+                    cb();
+                    return;
+                }
+
+                c.getObject(b, k, function (gErr, mo) {
+                    t.ifError(gErr, 'getObject() error');
+                    assertObject(t, mo, k, o);
+                    cb();
+                });
+            });
+        };
+    }
+
+    t.equal(Object.keys(conflict).length, NUM_UNIQUE_INDEXES,
+        'all unique fields tested');
+
+    vasync.pipeline({
+        funcs: [
+            function (_, cb) {
+                c.putObject(b, uuid.v4(), conflict, cb);
+            },
+
+            checkConflicts,
+
+            /*
+             * Check that values that are similar, but not the same, can be
+             * loaded into the bucket.
+             */
+            noConflict('date_u', '2015-10-21T00:00:00.001Z'),
+            noConflict('dater_u', '(2015-10-21T00:00:00.001Z,)'),
+            noConflict('str_u', 'Hello'),
+            noConflict('num_u', 40.1),
+            noConflict('numr_u', '(,9000)'),
+            noConflict('numr_u', '(9001,)'),
+            noConflict('bool_u', false),
+            noConflict('ip_u', '1.2.3.5'),
+            noConflict('mac_u', '38:7c:0e:5d:bf:9b'),
+            noConflict('subnet_u', '10.0.0.0/24'),
+            noConflict('uuid_u', '725f6c18-12de-c9ef-fb37-d3d14ba3d24e')
+        ]
+    }, function (err) {
+        t.ifError(err);
+        t.end();
+    });
+
+});
+
+test('InvalidIndexTypeError/InvalidQueryError for every type', function (t) {
+    /*
+     * For the array-type columns, place the bad values at the end of the array,
+     * so that it can be found by the InvalidQueryError tests below. (There's
+     * also no point in testing invalid values that are no in an array, since
+     * Moray implicitly wraps singleton values.)
+     */
+    var tests = [
+        {
+            attr: 'date',
+            values: [
+                'foo',
+                'August 1, 2020',
+                '1970-01-01T00:00:00.000',
+                '1970-01-01 00:00:00.000Z',
+                '-1970-01-01T00:00:00.000Z',
+                '1970-01-01',
+                0,
+                1529346379184
+            ]
+        },
+        {
+            attr: 'date_a',
+            values: [
+                [ '1970-01-01T00:00:00.000Z', 'Thursday, 1 January 1970' ],
+                [ 0 ],
+                [ 1529346379184 ]
+            ]
+        },
+        {
+            attr: 'dater',
+            values: [
+                '{,}',
+                '[,foo]',
+                '[foo,]'
+            ]
+        },
+        {
+            attr: 'numr',
+            values: [
+                '{,}',
+                '[,foo]',
+                '[foo,]',
+                '[,2.foo]',
+                '[2.foo,]'
+            ]
+        },
+        {
+            attr: 'bool',
+            values: [
+                'foo',
+                'truef',
+                'troo',
+                'tf',
+                'ft',
+                23
+            ]
+        },
+        {
+            attr: 'bool_a',
+            values: [
+                [ true, false, true, 'bar' ]
+            ]
+        },
+        {
+            attr: 'ip',
+            values: [
+                'foo',
+                '1.2.3.4.5',
+                '1.2.3',
+                'fd00:::1'
+            ]
+        },
+        {
+            attr: 'ip_a',
+            values: [
+                [ '1.2.3.4', 'fd00::1', 'foo' ]
+            ]
+        },
+        {
+            attr: 'mac',
+            values: [
+                'foo',
+                true,
+                2012543500901123,
+                '33:06:49:0f:4b:3q',
+                '333:06:49:0f:4b:3b',
+                '33:006:49:0f:4b:3b',
+                '06:49:0f:4b:3b',
+                'ab:33:06:49:0f:4b:3b'
+            ]
+        },
+        {
+            attr: 'mac_a',
+            values: [
+                [ '6a:94:d5:ab:54:ba', 'foo' ]
+            ]
+        },
+        {
+            attr: 'subnet',
+            values: [
+                'foo',
+                '1.2.3.0/40',
+                'fd00::/-20',
+                'fd00::/150',
+                'fd00:::/64'
+            ]
+        },
+        {
+            attr: 'subnet_a',
+            values: [
+                [ 'fd00::/64', 'foo' ]
+            ]
+        },
+        {
+            attr: 'uuid',
+            values: [
+                'foo',
+                '0123',
+                'abcd',
+                '5ec7875-bd10-401a-cfc1-dc1e90018abe',
+                '5ec78759-bd1-401a-cfc1-dc1e90018abe',
+                '5ec78759-bd10-401-cfc1-dc1e90018abe',
+                '5ec78759-bd10-401a-cfc-dc1e90018abe',
+                '5ec78759-bd10-401a-cfc1-dc1e90018ab',
+                '1-5ec78759-bd10-401a-cfc1-dc1e90018abe'
+            ]
+        },
+
+        /*
+         * Unfortunately, Moray is extremely accepting for string type columns,
+         * and some services rely on this. (For example, UFDS sends arrays and
+         * expects to be stringified such that its contents are separated by a
+         * comma.) We just leave empty "values" arrays here, and hopefully can
+         * someday tighten things up.
+         */
+        {
+            attr: 'str',
+            values: [ ]
+        },
+        {
+            attr: 'str_a',
+            values: [ ]
+        },
+        {
+            attr: 'str2',
+            values: [ ]
+        },
+        /*
+         * And, naturally, the same goes for number type columns! Workflow sends
+         * strings that get turned into NaN, which get turned into NULL, and
+         * UFDS sends input like [ '4' ], which parseInt()/parseFloat() will
+         * happily coerce into a string and then parse.
+         */
+        {
+            attr: 'num',
+            values: [ ]
+        },
+        {
+            attr: 'num_a',
+            values: [ ]
+        }
+    ];
+
+    t.equal(tests.length, NUM_NON_UNIQUE_INDEXES, 'all fields tested');
+
+    function tryKV(t2, attr, value, cb) {
+        var o = {};
+        o[attr] = value;
+
+        c.putObject(b, uuid.v4(), o, function (err) {
+            var msg = fmt('putObject(%j) fails with InvalidIndexTypeError', o);
+
+            if (err) {
+                if (VError.hasCauseWithName(err, 'InvalidIndexTypeError')) {
+                    t2.pass(msg);
+                } else {
+                    t2.ifError(err, msg);
+                }
+            } else {
+                t2.fail(msg);
+            }
+
+            cb();
+        });
+    }
+
+    function tryQuery(t2, attr, value, cb) {
+        var filter = fmt('(%s=%s)', attr, value);
+        var msg = fmt('findObjects(%j) fails w/ InvalidQueryError', filter);
+        var res = c.findObjects(b, filter);
+
+        res.on('record', function (row) {
+            t2.deepEqual(row, null, msg);
+        });
+
+        res.on('error', function (err) {
+            if (VError.hasCauseWithName(err, 'InvalidQueryError')) {
+                t2.pass(msg);
+            } else {
+                t2.ifError(err, msg);
+            }
+
+            cb();
+        });
+
+        res.on('end', function () {
+            t2.fail(msg);
+            cb();
+        });
+    }
+
+    tests.forEach(function (info) {
+        if (info.values.length === 0) {
+            return;
+        }
+
+        t.test(fmt('InvalidIndexTypeError for %j', info.attr), function (t2) {
+            vasync.forEachPipeline({
+                inputs: info.values,
+                func: function (value, cb) {
+                    tryKV(t2, info.attr, value, cb);
+                }
+            }, function (err) {
+                t2.ifError(err, info.attr + ' tests error');
+                t2.end();
+            });
+        });
+
+        t.test(fmt('InvalidQueryError for %j', info.attr), function (t2) {
+            vasync.forEachPipeline({
+                inputs: info.values,
+                func: function (value, cb) {
+                    if (Array.isArray(value)) {
+                        value = value[value.length - 1];
+                    }
+
+                    tryQuery(t2, info.attr, value, cb);
+                }
+            }, function (err) {
+                t2.ifError(err, info.attr + ' tests error');
+                t2.end();
+            });
         });
     });
 });

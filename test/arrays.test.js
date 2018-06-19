@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2016, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var once = require('once');
@@ -38,12 +38,10 @@ function test(name, setup) {
         });
     });
 
-    tape.test(name + ' - main', function (t) {
-        setup(t);
-    });
+    tape.test(name + ' - main', setup);
 
     tape.test(name + ' - teardown', function (t) {
-    // May or may not exist, just blindly ignore
+        // May or may not exist, just blindly ignore
         c.delBucket(b, function () {
             c.once('close', function () {
                 helper.cleanupServer(server, function () {
@@ -384,6 +382,22 @@ test('schema array, array value (number)', function (t) {
                 cb = once(cb);
 
                 var req = c.findObjects(b, '(id<=1)');
+                req.once('error', cb);
+                req.once('record', checkObject);
+                req.once('end', cb);
+            },
+            function gt(_, cb) {
+                cb = once(cb);
+
+                var req = c.findObjects(b, '(id>=0)');
+                req.once('error', cb);
+                req.once('record', checkObject);
+                req.once('end', cb);
+            },
+            function lt(_, cb) {
+                cb = once(cb);
+
+                var req = c.findObjects(b, '(id<=4)');
                 req.once('error', cb);
                 req.once('record', checkObject);
                 req.once('end', cb);

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var jsprim = require('jsprim');
@@ -36,11 +36,32 @@ var FULL_CFG = {
             type: 'number',
             unique: true
         },
+        numr: {
+            type: 'numrange'
+        },
+        numr_u: {
+            type: 'numrange',
+            unique: true
+        },
         bool: {
             type: 'boolean'
         },
         bool_u: {
             type: 'boolean',
+            unique: true
+        },
+        date: {
+            type: 'date'
+        },
+        date_u: {
+            type: 'date',
+            unique: true
+        },
+        daterange: {
+            type: 'daterange'
+        },
+        daterange_u: {
+            type: 'daterange',
             unique: true
         },
         ip: {
@@ -50,11 +71,25 @@ var FULL_CFG = {
             type: 'ip',
             unique: true
         },
+        mac: {
+            type: 'mac'
+        },
+        mac_u: {
+            type: 'mac',
+            unique: true
+        },
         subnet: {
             type: 'subnet'
         },
         subnet_u: {
             type: 'subnet',
+            unique: true
+        },
+        uuid: {
+            type: 'uuid'
+        },
+        uuid_u: {
+            type: 'uuid',
             unique: true
         }
     },
