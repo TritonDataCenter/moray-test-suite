@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2016, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 /*
@@ -23,7 +23,7 @@ var helper = require('./helper');
 tape.test('client close actually closes sockets', function (t) {
     var server, nhandles, client;
 
-    server = net.createServer(12345);
+    server = net.createServer();
 
     vasync.waterfall([
         function startServer(callback) {
